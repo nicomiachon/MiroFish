@@ -192,12 +192,22 @@ class OasisProfileGenerator:
         self.provider = Config.LLM_PROVIDER
 
         if not self.api_key:
-            raise ValueError("LLM_API_KEY 未配置")
+            raise ValueError("LLM API key not configured")
 
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url
-        )
+        if self.provider == 'bedrock':
+            from ..utils.bedrock_client import BedrockClient
+            self._bedrock = BedrockClient(
+                api_key=self.api_key,
+                region=Config.AWS_REGION,
+                model=self.model_name
+            )
+            self.client = None
+        else:
+            self._bedrock = None
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url
+            )
         
         # Zep客户端用于检索丰富上下文
         self.zep_api_key = zep_api_key or Config.ZEP_API_KEY
@@ -533,29 +543,26 @@ class OasisProfileGenerator:
                     {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": prompt}
                 ]
-                call_kwargs = {
-                    "model": self.model_name,
-                    "messages": messages,
-                    "temperature": 0.7 - (attempt * 0.1),  # 每次重试降低温度
-                    # 不设置max_tokens，让LLM自由发挥
-                }
-                if self.provider == 'bedrock':
-                    json_instruction = "\n\nIMPORTANT: You MUST respond with valid JSON only. No markdown code fences, no explanatory text. Output pure JSON."
-                    call_kwargs["messages"] = [{"role": "system", "content": sys_prompt + json_instruction}, {"role": "user", "content": prompt}]
-                else:
-                    call_kwargs["response_format"] = {"type": "json_object"}
+                temp = 0.7 - (attempt * 0.1)
 
-                response = self.client.chat.completions.create(**call_kwargs)
+                if self._bedrock:
+                    response = self._bedrock.chat_completions_create(
+                        model=self.model_name,
+                        messages=messages,
+                        temperature=temp,
+                        max_tokens=4096,
+                        response_format={"type": "json_object"},
+                    )
+                else:
+                    response = self.client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        temperature=temp,
+                        response_format={"type": "json_object"},
+                    )
 
                 content = response.choices[0].message.content
-
-                # 检查是否被截断（finish_reason不是'stop'）
                 finish_reason = response.choices[0].finish_reason
-                # Normalize finish_reason across providers
-                if finish_reason in ('end_turn',):
-                    finish_reason = 'stop'
-                if finish_reason in ('max_tokens',):
-                    finish_reason = 'length'
                 if finish_reason == 'length':
                     logger.warning(f"LLM输出被截断 (attempt {attempt+1}), 尝试修复...")
                     content = self._fix_truncated_json(content)

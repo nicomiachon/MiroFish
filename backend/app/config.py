@@ -46,7 +46,7 @@ class Config:
         if cls.LLM_PROVIDER == 'bedrock':
             return (
                 cls.BEDROCK_API_KEY,
-                f"https://bedrock-runtime.{cls.AWS_REGION}.amazonaws.com/v1",
+                None,  # Bedrock uses Converse API, not OpenAI-compatible endpoint
                 cls.CLAUDE_MODEL,
             )
         return (cls.LLM_API_KEY, cls.LLM_BASE_URL, cls.LLM_MODEL_NAME)
