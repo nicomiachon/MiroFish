@@ -21,6 +21,10 @@
       </div>
 
       <div class="header-right">
+        <div class="token-counter" v-if="tokenUsage.total_tokens > 0" :title="`In: ${tokenUsage.input_tokens.toLocaleString()} | Out: ${tokenUsage.output_tokens.toLocaleString()} | Requests: ${tokenUsage.requests}`">
+          <span class="token-icon">T</span>
+          <span class="token-value">{{ formatTokens(tokenUsage.total_tokens) }}</span>
+        </div>
         <div class="workflow-step">
           <span class="step-num">Step 5/5</span>
           <span class="step-name">Deep Interaction</span>
@@ -62,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step5Interaction from '../components/Step5Interaction.vue'
@@ -89,6 +93,21 @@ const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
 const currentStatus = ref('ready') // ready | processing | completed | error
+const tokenUsage = ref({ input_tokens: 0, output_tokens: 0, total_tokens: 0, requests: 0 })
+let tokenPollTimer = null
+
+const formatTokens = (n) => {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+
+const pollTokenUsage = async () => {
+  try {
+    const resp = await fetch('http://localhost:5001/api/stats/tokens')
+    if (resp.ok) tokenUsage.value = await resp.json()
+  } catch {}
+}
 
 // --- Computed Layout Styles ---
 const leftPanelStyle = computed(() => {
@@ -210,6 +229,13 @@ watch(() => route.params.reportId, (newId) => {
 onMounted(() => {
   addLog('InteractionView initialized')
   loadReportData()
+
+  pollTokenUsage()
+  tokenPollTimer = setInterval(pollTokenUsage, 10000)
+})
+
+onUnmounted(() => {
+  if (tokenPollTimer) clearInterval(tokenPollTimer)
 })
 </script>
 
@@ -280,6 +306,29 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.token-counter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.token-icon {
+  font-weight: 700;
+  color: #e8590c;
+  font-size: 11px;
+}
+
+.token-value {
+  font-weight: 500;
 }
 
 .workflow-step {

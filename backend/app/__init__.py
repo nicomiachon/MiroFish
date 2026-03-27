@@ -68,10 +68,16 @@ def create_app(config_class=Config):
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
     
-    # 健康检查
+    # Health check
     @app.route('/health')
     def health():
         return {'status': 'ok', 'service': 'MiroFish Backend'}
+
+    # Token usage stats
+    @app.route('/api/stats/tokens')
+    def token_stats():
+        from .utils.token_tracker import tracker
+        return tracker.get_total()
     
     if should_log_startup:
         logger.info("MiroFish Backend 启动完成")

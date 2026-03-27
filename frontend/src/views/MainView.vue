@@ -21,6 +21,10 @@
       </div>
 
       <div class="header-right">
+        <div class="token-counter" v-if="tokenUsage.total_tokens > 0" :title="`In: ${tokenUsage.input_tokens.toLocaleString()} | Out: ${tokenUsage.output_tokens.toLocaleString()} | Requests: ${tokenUsage.requests}`">
+          <span class="token-icon">T</span>
+          <span class="token-value">{{ formatTokens(tokenUsage.total_tokens) }}</span>
+        </div>
         <div class="workflow-step">
           <span class="step-num">Step {{ currentStep }}/5</span>
           <span class="step-name">{{ stepNames[currentStep - 1] }}</span>
@@ -104,6 +108,23 @@ const currentPhase = ref(-1) // -1: Upload, 0: Ontology, 1: Build, 2: Complete
 const ontologyProgress = ref(null)
 const buildProgress = ref(null)
 const systemLogs = ref([])
+
+// Token usage
+const tokenUsage = ref({ input_tokens: 0, output_tokens: 0, total_tokens: 0, requests: 0 })
+let tokenPollTimer = null
+
+const formatTokens = (n) => {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+
+const pollTokenUsage = async () => {
+  try {
+    const resp = await fetch('http://localhost:5001/api/stats/tokens')
+    if (resp.ok) tokenUsage.value = await resp.json()
+  } catch {}
+}
 
 // Polling timers
 let pollTimer = null
@@ -396,11 +417,14 @@ const stopGraphPolling = () => {
 
 onMounted(() => {
   initProject()
+  pollTokenUsage()
+  tokenPollTimer = setInterval(pollTokenUsage, 10000)
 })
 
 onUnmounted(() => {
   stopPolling()
   stopGraphPolling()
+  if (tokenPollTimer) clearInterval(tokenPollTimer)
 })
 </script>
 
@@ -480,6 +504,29 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.token-counter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.token-icon {
+  font-weight: 700;
+  color: #e8590c;
+  font-size: 11px;
+}
+
+.token-value {
+  font-weight: 500;
 }
 
 .workflow-step {

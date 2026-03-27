@@ -350,8 +350,10 @@ class SimulationRunner:
         total_hours = time_config.get("total_simulation_hours", 72)
         minutes_per_round = time_config.get("minutes_per_round", 30)
         total_rounds = int(total_hours * 60 / minutes_per_round)
-        
-        # 如果指定了最大轮数，则截断
+
+        # Apply default cap if no max_rounds specified
+        if max_rounds is None:
+            max_rounds = Config.OASIS_DEFAULT_MAX_ROUNDS
         if max_rounds is not None and max_rounds > 0:
             original_rounds = total_rounds
             total_rounds = min(total_rounds, max_rounds)

@@ -107,6 +107,13 @@ class BedrockClient:
         content_blocks = message.get("content", [])
         text = content_blocks[0]["text"] if content_blocks else ""
 
+        # Track token usage
+        usage = data.get("usage", {})
+        input_tokens = usage.get("inputTokens", 0)
+        output_tokens = usage.get("outputTokens", 0)
+        from .token_tracker import tracker
+        tracker.add(input_tokens, output_tokens)
+
         # Map stop reason
         stop_reason = data.get("stopReason", "end_turn")
         finish_reason_map = {

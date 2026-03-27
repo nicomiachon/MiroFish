@@ -70,6 +70,10 @@ class LLMClient:
             if response_format:
                 kwargs["response_format"] = response_format
             response = self.client.chat.completions.create(**kwargs)
+            # Track token usage for OpenAI
+            if hasattr(response, 'usage') and response.usage:
+                from .token_tracker import tracker
+                tracker.add(response.usage.prompt_tokens or 0, response.usage.completion_tokens or 0)
 
         content = response.choices[0].message.content
         # Some models (e.g. MiniMax M2.5) include <think> tags — strip them
