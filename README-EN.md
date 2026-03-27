@@ -162,6 +162,23 @@ npm run backend   # Start backend only
 npm run frontend  # Start frontend only
 ```
 
+### Try It Out: Demo Data
+
+A ready-to-use demo is included to help you test the full pipeline. It predicts TotalEnergies (TTE) stock price over 6 months based on financial metrics, oil market dynamics, and geopolitical risk factors.
+
+**Files:**
+- [`test_input_totalenergies.md`](./test_input_totalenergies.md) — Seed document with historical prices, financials, oil market context, analyst consensus, and risk scenarios
+- [`test_prompt_totalenergies.txt`](./test_prompt_totalenergies.txt) — Simulation prompt
+
+**How to use:**
+1. Start the app (`npm run dev`) and open `http://localhost:3000`
+2. Upload `test_input_totalenergies.md` as the Reality Seed
+3. Copy the prompt from `test_prompt_totalenergies.txt` into the Simulation Prompt field:
+   > Predict TotalEnergies (TTE) stock price trajectory over the next 6 months (April - September 2026), considering oil price dynamics, geopolitical risks (Iran/Strait of Hormuz crisis), OPEC+ production decisions, company fundamentals and earnings, and analyst sentiment shifts.
+4. Click **Start Engine** and follow the 5-step workflow
+
+> **Tip:** Start with fewer than 10 simulation rounds to keep API costs low while testing.
+
 ### Option 2: Docker Deployment
 
 ```bash

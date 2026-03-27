@@ -1,0 +1,1 @@
+Predict TotalEnergies (TTE) stock price trajectory over the next 6 months (April - September 2026), considering oil price dynamics, geopolitical risks (Iran/Strait of Hormuz crisis), OPEC+ production decisions, company fundamentals and earnings, and analyst sentiment shifts.
