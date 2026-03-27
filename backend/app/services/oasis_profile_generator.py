@@ -185,13 +185,15 @@ class OasisProfileGenerator:
         zep_api_key: Optional[str] = None,
         graph_id: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model_name = model_name or Config.LLM_MODEL_NAME
-        
+        default_key, default_url, default_model = Config.get_llm_config()
+        self.api_key = api_key or default_key
+        self.base_url = base_url or default_url
+        self.model_name = model_name or default_model
+        self.provider = Config.LLM_PROVIDER
+
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未配置")
-        
+
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url
@@ -526,21 +528,34 @@ class OasisProfileGenerator:
         
         for attempt in range(max_attempts):
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": self._get_system_prompt(is_individual)},
-                        {"role": "user", "content": prompt}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)  # 每次重试降低温度
+                sys_prompt = self._get_system_prompt(is_individual)
+                messages = [
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": prompt}
+                ]
+                call_kwargs = {
+                    "model": self.model_name,
+                    "messages": messages,
+                    "temperature": 0.7 - (attempt * 0.1),  # 每次重试降低温度
                     # 不设置max_tokens，让LLM自由发挥
-                )
-                
+                }
+                if self.provider == 'bedrock':
+                    json_instruction = "\n\nIMPORTANT: You MUST respond with valid JSON only. No markdown code fences, no explanatory text. Output pure JSON."
+                    call_kwargs["messages"] = [{"role": "system", "content": sys_prompt + json_instruction}, {"role": "user", "content": prompt}]
+                else:
+                    call_kwargs["response_format"] = {"type": "json_object"}
+
+                response = self.client.chat.completions.create(**call_kwargs)
+
                 content = response.choices[0].message.content
-                
+
                 # 检查是否被截断（finish_reason不是'stop'）
                 finish_reason = response.choices[0].finish_reason
+                # Normalize finish_reason across providers
+                if finish_reason in ('end_turn',):
+                    finish_reason = 'stop'
+                if finish_reason in ('max_tokens',):
+                    finish_reason = 'length'
                 if finish_reason == 'length':
                     logger.warning(f"LLM输出被截断 (attempt {attempt+1}), 尝试修复...")
                     content = self._fix_truncated_json(content)

@@ -427,37 +427,55 @@ class TwitterSimulationRunner:
     def _create_model(self):
         """
         创建LLM模型
-        
-        统一使用项目根目录 .env 文件中的配置（优先级最高）：
-        - LLM_API_KEY: API密钥
-        - LLM_BASE_URL: API基础URL
-        - LLM_MODEL_NAME: 模型名称
+
+        支持 OpenAI 和 AWS Bedrock 两种 Provider：
+        - LLM_PROVIDER=openai: 使用 LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME
+        - LLM_PROVIDER=bedrock: 使用 BEDROCK_API_KEY, AWS_REGION, CLAUDE_MODEL
         """
-        # 优先从 .env 读取配置
-        llm_api_key = os.environ.get("LLM_API_KEY", "")
-        llm_base_url = os.environ.get("LLM_BASE_URL", "")
-        llm_model = os.environ.get("LLM_MODEL_NAME", "")
-        
-        # 如果 .env 中没有，则使用 config 作为备用
-        if not llm_model:
-            llm_model = self.config.get("llm_model", "gpt-4o-mini")
-        
-        # 设置 camel-ai 所需的环境变量
-        if llm_api_key:
-            os.environ["OPENAI_API_KEY"] = llm_api_key
-        
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("缺少 API Key 配置，请在项目根目录 .env 文件中设置 LLM_API_KEY")
-        
-        if llm_base_url:
-            os.environ["OPENAI_API_BASE_URL"] = llm_base_url
-        
-        print(f"LLM配置: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else '默认'}...")
-        
-        return ModelFactory.create(
-            model_platform=ModelPlatformType.OPENAI,
-            model_type=llm_model,
-        )
+        llm_provider = os.environ.get("LLM_PROVIDER", "openai")
+
+        if llm_provider == "bedrock":
+            bedrock_api_key = os.environ.get("BEDROCK_API_KEY", "")
+            aws_region = os.environ.get("AWS_REGION", "eu-west-1")
+            claude_model = os.environ.get("CLAUDE_MODEL", "eu.anthropic.claude-sonnet-4-6")
+
+            if not bedrock_api_key:
+                raise ValueError("缺少 BEDROCK_API_KEY 配置")
+
+            bedrock_base_url = f"https://bedrock-runtime.{aws_region}.amazonaws.com/v1"
+            os.environ["BEDROCK_API_KEY"] = bedrock_api_key
+            os.environ["BEDROCK_API_BASE_URL"] = bedrock_base_url
+
+            print(f"LLM配置 [Bedrock]: model={claude_model}, region={aws_region}")
+
+            return ModelFactory.create(
+                model_platform=ModelPlatformType.AWS_BEDROCK,
+                model_type=claude_model,
+            )
+        else:
+            # OpenAI path
+            llm_api_key = os.environ.get("LLM_API_KEY", "")
+            llm_base_url = os.environ.get("LLM_BASE_URL", "")
+            llm_model = os.environ.get("LLM_MODEL_NAME", "")
+
+            if not llm_model:
+                llm_model = self.config.get("llm_model", "gpt-4o-mini")
+
+            if llm_api_key:
+                os.environ["OPENAI_API_KEY"] = llm_api_key
+
+            if not os.environ.get("OPENAI_API_KEY"):
+                raise ValueError("缺少 API Key 配置，请在项目根目录 .env 文件中设置 LLM_API_KEY")
+
+            if llm_base_url:
+                os.environ["OPENAI_API_BASE_URL"] = llm_base_url
+
+            print(f"LLM配置: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else '默认'}...")
+
+            return ModelFactory.create(
+                model_platform=ModelPlatformType.OPENAI,
+                model_type=llm_model,
+            )
     
     def _get_active_agents_for_round(
         self, 

@@ -27,10 +27,29 @@ class Config:
     # JSON配置 - 禁用ASCII转义，让中文直接显示（而不是 \uXXXX 格式）
     JSON_AS_ASCII = False
     
-    # LLM配置（统一使用OpenAI格式）
+    # LLM Provider: "openai" or "bedrock"
+    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'openai')
+
+    # OpenAI-compatible config
     LLM_API_KEY = os.environ.get('LLM_API_KEY')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
     LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
+
+    # AWS Bedrock config
+    AWS_REGION = os.environ.get('AWS_REGION', 'eu-west-1')
+    BEDROCK_API_KEY = os.environ.get('BEDROCK_API_KEY')
+    CLAUDE_MODEL = os.environ.get('CLAUDE_MODEL', 'eu.anthropic.claude-sonnet-4-6')
+
+    @classmethod
+    def get_llm_config(cls):
+        """Return (api_key, base_url, model_name) based on LLM_PROVIDER."""
+        if cls.LLM_PROVIDER == 'bedrock':
+            return (
+                cls.BEDROCK_API_KEY,
+                f"https://bedrock-runtime.{cls.AWS_REGION}.amazonaws.com/v1",
+                cls.CLAUDE_MODEL,
+            )
+        return (cls.LLM_API_KEY, cls.LLM_BASE_URL, cls.LLM_MODEL_NAME)
     
     # Zep配置
     ZEP_API_KEY = os.environ.get('ZEP_API_KEY')
@@ -67,8 +86,12 @@ class Config:
     def validate(cls):
         """验证必要配置"""
         errors = []
-        if not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY 未配置")
+        if cls.LLM_PROVIDER == 'bedrock':
+            if not cls.BEDROCK_API_KEY:
+                errors.append("BEDROCK_API_KEY 未配置")
+        else:
+            if not cls.LLM_API_KEY:
+                errors.append("LLM_API_KEY 未配置")
         if not cls.ZEP_API_KEY:
             errors.append("ZEP_API_KEY 未配置")
         return errors
